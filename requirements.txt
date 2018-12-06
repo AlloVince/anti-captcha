@@ -1,0 +1,5 @@
+tensorflow
+numpy
+captcha
+pillow
+matplotlib
