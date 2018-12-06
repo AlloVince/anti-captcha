@@ -160,6 +160,11 @@ def crack_captcha_cnn(w_alpha=0.01, b_alpha=0.1):
     return out
 
 
+model_path = os.path.dirname(os.path.realpath(__file__)) + '/models'
+model_name = model_path + '/model'
+ACC_TARGET = float(os.environ.get('ACC_TARGET', 0.9))
+
+
 # 训练
 def train_crack_captcha_cnn():
     output = crack_captcha_cnn()
@@ -176,10 +181,19 @@ def train_crack_captcha_cnn():
     accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
     saver = tf.train.Saver()
+    checkpoint = tf.train.latest_checkpoint(model_path)
+
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
+        if checkpoint:
+            saver.restore(sess, checkpoint)
+            useless, step = checkpoint.split('model-')
+            step = int(step)
+            print('找到 Checkpoint %s, 继续上次训练 Step %s' % (checkpoint, step))
+        else:
+            step = 1
+            print('开始新的训练 Step', step)
 
-        step = 0
         while True:
             batch_x, batch_y = get_next_batch(64)
             _, loss_ = sess.run([optimizer, loss], feed_dict={X: batch_x, Y: batch_y, keep_prob: 0.75})
@@ -190,13 +204,12 @@ def train_crack_captcha_cnn():
                 batch_x_test, batch_y_test = get_next_batch(100)
                 acc = sess.run(accuracy, feed_dict={X: batch_x_test, Y: batch_y_test, keep_prob: 1.})
                 print('ACC', step, acc)
+
+                # 每100次保存Model
+                saver.save(sess, model_name, global_step=step)
+                print('model saved to', model_name)
                 # 如果准确率大于50%,保存模型,完成训练
-                if acc > 0.1:
-                    path = os.path.dirname(os.path.realpath(__file__)) + "/models/model.ckpt"
-                    print('model saved to %s', path)
-                    # saver.save(sess, path)
-                    saver.save(sess, path,
-                               global_step=step)
+                if acc > ACC_TARGET:
                     break
             step += 1
 
