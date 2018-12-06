@@ -1,20 +1,11 @@
-from gen_captcha import gen_captcha_text_and_image
-from gen_captcha import number
-from gen_captcha import alphabet
-from gen_captcha import ALPHABET
-
+from gen_captcha import gen_captcha_text_and_image, IMAGE_WIDTH, IMAGE_HEIGHT, MAX_CAPTCHA, CHAR_SET_LEN
 import numpy as np
 import tensorflow as tf
 import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-text, image = gen_captcha_text_and_image()  # 先生成验证码和文字测试模块是否完全
-# print("验证码图像channel:", image.shape)  # (60, 160, 3)
-# 图像大小
-IMAGE_HEIGHT = 60
-IMAGE_WIDTH = 160
-MAX_CAPTCHA = len(text)
+
 # print("验证码文本最长字符数", MAX_CAPTCHA)  # 验证码最长4字符; 我全部固定为4,可以不固定. 如果验证码长度小于4，用'_'补齐
 
 
@@ -35,15 +26,11 @@ cnn在图像大小是2的倍数时性能最高, 如果你用的图像大小不�
 np.pad(image【,((2,3),(2,2)), 'constant', constant_values=(255,))  # 在图像上补2行，下补3行，左补2行，右补2行
 """
 
-# 文本转向量
-char_set = number + alphabet + ALPHABET + ['_']  # 如果验证码长度小于4, '_'用来补齐
-CHAR_SET_LEN = len(char_set)
-
 
 def text2vec(text):
     text_len = len(text)
     if text_len > MAX_CAPTCHA:
-        raise ValueError('验证码最长4个字符')
+        raise ValueError('超过验证码最长字符')
 
     vector = np.zeros(MAX_CAPTCHA * CHAR_SET_LEN)
 
@@ -108,7 +95,7 @@ def get_next_batch(batch_size=128):
         ''' 获取一张图，判断其是否符合（60，160，3）的规格'''
         while True:
             text, image = gen_captcha_text_and_image()
-            if image.shape == (60, 160, 3):  # 此部分应该与开头部分图片宽高吻合
+            if image.shape == (IMAGE_HEIGHT, IMAGE_WIDTH, 3):  # 此部分应该与开头部分图片宽高吻合
                 return text, image
 
     for i in range(batch_size):
