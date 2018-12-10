@@ -147,7 +147,7 @@ def crack_captcha_cnn(w_alpha=0.01, b_alpha=0.1):
     conv3 = tf.nn.dropout(conv3, keep_prob)
 
     # Fully connected layer
-    w_d = tf.Variable(w_alpha * tf.random_normal([8 * 20 * 64, 1024]))
+    w_d = tf.Variable(w_alpha * tf.random_normal([10 * 25 * 64, 1024]))  # 10 * 25 * 64是由conv3得到的
     b_d = tf.Variable(b_alpha * tf.random_normal([1024]))
     dense = tf.reshape(conv3, [-1, w_d.get_shape().as_list()[0]])
     dense = tf.nn.relu(tf.add(tf.matmul(dense, w_d), b_d))
@@ -162,7 +162,7 @@ def crack_captcha_cnn(w_alpha=0.01, b_alpha=0.1):
 
 model_path = os.path.dirname(os.path.realpath(__file__)) + '/models'
 model_name = model_path + '/model'
-ACC_TARGET = float(os.environ.get('ACC_TARGET', 0.9))
+ACC_TARGET = float(os.environ.get('ACC_TARGET', 0.95))
 
 
 # 训练
