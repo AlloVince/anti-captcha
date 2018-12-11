@@ -1,3 +1,5 @@
+import asyncio
+
 from train import crack_captcha_cnn, convert2gray, vec2text, X, keep_prob, model_path
 from gen_captcha import gen_captcha_text_and_image, MAX_CAPTCHA, CHAR_SET_LEN
 import numpy as np
@@ -25,9 +27,15 @@ def crack_captcha(captcha_image):
         return vec2text(vector)
 
 
-if __name__ == '__main__':
-    text, image = gen_captcha_text_and_image()
+async def main():
+    text, image, o = await gen_captcha_text_and_image()
     image = convert2gray(image)
     image = image.flatten() / 255
     predict_text = crack_captcha(image)
     print("匹配: {} 正确: {}  预测: {}".format(text == predict_text, text, predict_text))
+
+
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+    loop.close()

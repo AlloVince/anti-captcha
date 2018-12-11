@@ -2,6 +2,7 @@ from gen_captcha import gen_captcha_text_and_image, IMAGE_WIDTH, IMAGE_HEIGHT, M
 import numpy as np
 import tensorflow as tf
 import os
+import asyncio
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -86,25 +87,31 @@ print(text)  # SFd5
 
 
 # 生成一个训练batch
-def get_next_batch(batch_size=128):
+async def get_next_batch(batch_size=128):
     batch_x = np.zeros([batch_size, IMAGE_HEIGHT * IMAGE_WIDTH])
     batch_y = np.zeros([batch_size, MAX_CAPTCHA * CHAR_SET_LEN])
 
     # 有时生成图像大小不是(60, 160, 3)
-    def wrap_gen_captcha_text_and_image():
+    async def wrap_gen_captcha_text_and_image():
         ''' 获取一张图，判断其是否符合（60，160，3）的规格'''
         while True:
-            text, image = gen_captcha_text_and_image()
+            text, image, o = await gen_captcha_text_and_image()
             if image.shape == (IMAGE_HEIGHT, IMAGE_WIDTH, 3):  # 此部分应该与开头部分图片宽高吻合
                 return text, image
 
-    for i in range(batch_size):
-        text, image = wrap_gen_captcha_text_and_image()
+    async def get_batch(index):
+        text, image = await wrap_gen_captcha_text_and_image()
         image = convert2gray(image)
 
         # 将图片数组一维化 同时将文本也对应在两个二维组的同一行
-        batch_x[i, :] = image.flatten() / 255  # (image.flatten()-128)/128  mean为0
-        batch_y[i, :] = text2vec(text)
+        batch_x[index, :] = image.flatten() / 255  # (image.flatten()-128)/128  mean为0
+        batch_y[index, :] = text2vec(text)
+
+    tasks = []
+    for i in range(batch_size):
+        tasks.append(asyncio.Task(get_batch(i)))
+
+    await asyncio.gather(*tasks)
     # 返回该训练批次
     return batch_x, batch_y
 
@@ -166,7 +173,7 @@ ACC_TARGET = float(os.environ.get('ACC_TARGET', 0.95))
 
 
 # 训练
-def train_crack_captcha_cnn():
+async def train_crack_captcha_cnn():
     output = crack_captcha_cnn()
     # loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(output, Y))
     loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=output, labels=Y))
@@ -195,13 +202,13 @@ def train_crack_captcha_cnn():
             print('开始新的训练 Step', step)
 
         while True:
-            batch_x, batch_y = get_next_batch(64)
+            batch_x, batch_y = await get_next_batch(64)
             _, loss_ = sess.run([optimizer, loss], feed_dict={X: batch_x, Y: batch_y, keep_prob: 0.75})
             print('Loss', step, loss_)
 
             # 每100 step计算一次准确率
             if step % 100 == 0:
-                batch_x_test, batch_y_test = get_next_batch(100)
+                batch_x_test, batch_y_test = await get_next_batch(100)
                 acc = sess.run(accuracy, feed_dict={X: batch_x_test, Y: batch_y_test, keep_prob: 1.})
                 print('ACC', step, acc)
 
@@ -215,4 +222,6 @@ def train_crack_captcha_cnn():
 
 
 if __name__ == '__main__':
-    train_crack_captcha_cnn()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(train_crack_captcha_cnn())
+    loop.close()
