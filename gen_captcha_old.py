@@ -1,4 +1,6 @@
 # coding:utf-8
+import asyncio
+
 from captcha.image import ImageCaptcha, random_color  # pip install captcha
 import numpy as np
 import matplotlib
@@ -11,14 +13,14 @@ import cv2
 matplotlib.use('TkAgg')
 
 # 验证码中的字符, 就不用汉字了
-number = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
-alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u',
-            'v', 'w', 'x', 'y', 'z']
-ALPHABET = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U',
-            'V', 'W', 'X', 'Y', 'Z']
-# number = ['0', '1', '2', '3', '4', '5']
-# alphabet = []
-# ALPHABET = []
+# number = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+# alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u',
+#             'v', 'w', 'x', 'y', 'z']
+# ALPHABET = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U',
+#             'V', 'W', 'X', 'Y', 'Z']
+number = ['0', '1']
+alphabet = []
+ALPHABET = []
 char_set = number + alphabet + ALPHABET + ['_']  # 如果验证码长度小于4, '_'用来补齐
 # IMAGE_WIDTH = 160
 # IMAGE_HEIGHT = 60
@@ -162,11 +164,11 @@ def random_captcha_text(char_set=number + alphabet + ALPHABET, captcha_size=MAX_
     return captcha_text
 
 
-def gen_captcha_text_and_image():
+async def gen_captcha_text_and_image():
     '''生成字符对应的验证码 '''
-    image = MyImageCaptcha(width=IMAGE_WIDTH, height=IMAGE_HEIGHT,
-                           fonts=['/Users/allovince/opt/htdocs/anti-captcha/fonts/Fangsong.ttf',
-                                  '/Users/allovince/opt/htdocs/anti-captcha/fonts/STHeiti.ttf'])  # 导入验证码包 生成一张空白图
+    image = ImageCaptcha(width=IMAGE_WIDTH, height=IMAGE_HEIGHT,
+                         fonts=['/Users/allovince/opt/htdocs/anti-captcha/fonts/Fangsong.ttf',
+                                '/Users/allovince/opt/htdocs/anti-captcha/fonts/STHeiti.ttf'])  # 导入验证码包 生成一张空白图
 
     captcha_text = random_captcha_text()  # 随机一个验证码内容
     captcha_text = ''.join(captcha_text)  # 类型转换为字符串
@@ -179,32 +181,20 @@ def gen_captcha_text_and_image():
 
     captcha_image = Image.open(captcha)  # 转换为图片格式
     captcha_image = np.array(captcha_image)  # 转换为 np数组类型
-    return captcha_text, captcha_image
+    return captcha_text, captcha_image, captcha_image
+
+
+async def main():
+    text, image, original_image = await gen_captcha_text_and_image()
+    f = plt.figure()
+    plt.subplot(2, 2, 1), plt.imshow(original_image)
+    plt.xticks([]), plt.yticks([])
+    plt.subplot(2, 2, 2), plt.imshow(image)
+    plt.xticks([]), plt.yticks([])
+    plt.show()
 
 
 if __name__ == '__main__':
-    # 测试
-    # while (1):
-    text, image = gen_captcha_text_and_image()
-    # f = plt.figure()
-    # ax = f.add_subplot(111)
-    # ax.text(0.1, 0.9, text, ha='center', va='center', transform=ax.transAxes)
-
-    img = cv2.imread('samples/' + text + '.jpg', 0)
-    img = cv2.medianBlur(img, 5)
-
-    ret, th1 = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
-    th2 = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, \
-                                cv2.THRESH_BINARY, 11, 2)
-    th3 = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, \
-                                cv2.THRESH_BINARY, 11, 2)
-
-    titles = ['Original Image', 'Global Thresholding (v = 127)',
-              'Adaptive Mean Thresholding', 'Adaptive Gaussian Thresholding']
-    images = [Image.open('samples/' + text + '.jpg'), th1, th2, th3]
-
-    for i in range(4):
-        plt.subplot(2, 2, i + 1), plt.imshow(images[i], 'gray')
-        plt.title(titles[i])
-        plt.xticks([]), plt.yticks([])
-    plt.show()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+    loop.close()
