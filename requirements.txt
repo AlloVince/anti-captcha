@@ -3,3 +3,5 @@ numpy
 captcha
 pillow
 matplotlib
+opencv-python
+requests
