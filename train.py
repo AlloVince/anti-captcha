@@ -99,19 +99,13 @@ async def get_next_batch(batch_size=128):
             if image.shape == (IMAGE_HEIGHT, IMAGE_WIDTH, 3):  # 此部分应该与开头部分图片宽高吻合
                 return text, image
 
-    async def get_batch(index):
+    for i in range(batch_size):
         text, image = await wrap_gen_captcha_text_and_image()
         image = convert2gray(image)
 
-        # 将图片数组一维化 同时将文本也对应在两个二维组的同一行
-        batch_x[index, :] = image.flatten() / 255  # (image.flatten()-128)/128  mean为0
-        batch_y[index, :] = text2vec(text)
+        batch_x[i, :] = image.flatten() / 255  # (image.flatten()-128)/128  mean为0
+        batch_y[i, :] = text2vec(text)
 
-    tasks = []
-    for i in range(batch_size):
-        tasks.append(asyncio.Task(get_batch(i)))
-
-    await asyncio.gather(*tasks)
     # 返回该训练批次
     return batch_x, batch_y
 
