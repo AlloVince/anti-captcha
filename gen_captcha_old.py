@@ -174,7 +174,7 @@ async def gen_captcha_text_and_image():
     captcha_text = ''.join(captcha_text)  # 类型转换为字符串
 
     captcha = image.generate(captcha_text)
-    image.write(captcha_text, 'samples/' + captcha_text + '.jpg')  # 写到文件
+    # image.write(captcha_text, 'samples/' + captcha_text + '.jpg')  # 写到文件
 
     # rm  =  'rm '+captcha_text + '.jpg'
     # os.system(rm)
@@ -186,12 +186,16 @@ async def gen_captcha_text_and_image():
 
 async def main():
     text, image, original_image = await gen_captcha_text_and_image()
-    f = plt.figure()
-    plt.subplot(2, 2, 1), plt.imshow(original_image)
-    plt.xticks([]), plt.yticks([])
-    plt.subplot(2, 2, 2), plt.imshow(image)
-    plt.xticks([]), plt.yticks([])
-    plt.show()
+    # print(image[:, :, 0], 'a', image[:, :, 1])
+    # print(image[:, :, 0] + image[:, :, 1])
+    print(image[:, :, 0] + image[:, :, 1] + image[:, :, 2])
+    print(np.mean(image, -1))
+    # f = plt.figure()
+    # plt.subplot(2, 2, 1), plt.imshow(original_image)
+    # plt.xticks([]), plt.yticks([])
+    # plt.subplot(2, 2, 2), plt.imshow(image)
+    # plt.xticks([]), plt.yticks([])
+    # plt.show()
 
 
 if __name__ == '__main__':
