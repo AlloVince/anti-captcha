@@ -5,4 +5,3 @@ pillow
 matplotlib
 opencv-python
 requests
-glob
