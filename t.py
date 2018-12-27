@@ -1,26 +1,95 @@
-from gen_captcha import pr, IMAGE_WIDTH, IMAGE_HEIGHT, MAX_CAPTCHA, CHAR_SET_LEN
+from captcha.image import ImageCaptcha  # pip install captcha
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+import random
+import cv2
+import requests
+
+# 验证码中的字符, 就不用汉字了
+number = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+alphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u',
+            'v', 'w', 'x', 'y', 'z']
+ALPHABET = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U',
+            'V', 'W', 'X', 'Y', 'Z']
+
+# ALPHABET = []
+
+
+# 验证码一般都无视大小写；验证码长度4个字符
+def random_captcha_text(char_set=number + alphabet + ALPHABET, captcha_size=4):
+    captcha_text = []
+    for i in range(captcha_size):
+        c = random.choice(char_set)
+        captcha_text.append(c)
+    return captcha_text
+
+
+# 生成字符对应的验证码
+def gen_captcha_text_and_image():
+    image = ImageCaptcha()
+
+    captcha_text = random_captcha_text()
+    captcha_text = ''.join(captcha_text)
+
+    captcha = image.generate(captcha_text)
+    # image.write(captcha_text, captcha_text + '.jpg')  # 写到文件
+
+    captcha_image = Image.open(captcha)
+    captcha_image = np.array(captcha_image)
+    return captcha_text, captcha_image
+
+
+def gen_captcha_text_and_image2():
+    response = requests.get('http://localhost:8888/captcha.php')
+    captcha_text = response.headers['X-Phrase']
+
+    # open('samples/' + captcha_text + '.jpg', 'wb').write(response.content)
+    nparr = np.fromstring(response.content, np.uint8)
+    original_image = cv2.imdecode(nparr, 1)
+    image = cv2.medianBlur(original_image, 5)
+    ret, th1 = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY)
+    return captcha_text, th1, original_image
+
+
 import numpy as np
 import tensorflow as tf
-import os
-import cv2
-import glob
-import time
-from concurrent.futures import ProcessPoolExecutor
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+text, image = gen_captcha_text_and_image()
+print("验证码图像channel:", image.shape)  # (60, 160, 3)
+# 图像大小
+IMAGE_HEIGHT = 60
+IMAGE_WIDTH = 160
+MAX_CAPTCHA = len(text)
+print("验证码文本最长字符数", MAX_CAPTCHA)  # 验证码最长4字符; 我全部固定为4,可以不固定. 如果验证码长度小于4，用'_'补齐
 
-model_path = os.path.dirname(os.path.realpath(__file__)) + '/models'
-model_name = model_path + '/model'
-ACC_TARGET = float(os.environ.get('ACC_TARGET', 0.95))
-image_path = os.path.dirname(os.path.realpath(__file__)) + '/samples'
-logs_path = os.path.dirname(os.path.realpath(__file__)) + '/logs'
-executor = ProcessPoolExecutor(max_workers=int(os.getenv('MAX_WORKERS', 4)))
+
+# 把彩色图像转为灰度图像（色彩对识别验证码没有什么用）
+def convert2gray(img):
+    if len(img.shape) > 2:
+        gray = np.mean(img, -1)
+        # 上面的转法较快，正规转法如下
+        # r, g, b = img[:,:,0], img[:,:,1], img[:,:,2]
+        # gray = 0.2989 * r + 0.5870 * g + 0.1140 * b
+        return gray
+    else:
+        return img
+
+
+"""
+cnn在图像大小是2的倍数时性能最高, 如果你用的图像大小不是2的倍数，可以在图像边缘补无用像素。
+np.pad(image,((2,3),(2,2)), 'constant', constant_values=(255,))  # 在图像上补2行，下补3行，左补2行，右补2行
+"""
+
+# 文本转向量
+char_set = number + alphabet + ALPHABET + ['_']  # 如果验证码长度小于4, '_'用来补齐
+CHAR_SET_LEN = len(char_set)
 
 
 def text2vec(text):
     text_len = len(text)
     if text_len > MAX_CAPTCHA:
-        raise ValueError('超过验证码最长字符')
+        raise ValueError('验证码最长4个字符')
 
     vector = np.zeros(MAX_CAPTCHA * CHAR_SET_LEN)
 
@@ -48,6 +117,7 @@ def vec2text(vec):
     char_pos = vec.nonzero()[0]
     text = []
     for i, c in enumerate(char_pos):
+        char_at_pos = i  # c/63
         char_idx = c % CHAR_SET_LEN
         if char_idx < 10:
             char_code = char_idx + ord('0')
@@ -63,52 +133,41 @@ def vec2text(vec):
     return "".join(text)
 
 
-def get_captcha(_image_path):
-    original_image = cv2.imread(_image_path)
-    image = cv2.medianBlur(original_image, 5)
-    ret, image = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY)
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    height, width = image.shape
-    revert = image.copy()
-    count = 0
-    for i in range(height):
-        for j in range(width):
-            if image[i, j] == 0:
-                count += 1
-            revert[i, j] = (255 - image[i, j])
-    image = revert if count > height * width / 2 else image
-    text = os.path.splitext(os.path.basename(_image_path))[0]
-    return text, image, _image_path
+"""
+#向量（大小MAX_CAPTCHA*CHAR_SET_LEN）用0,1编码 每63个编码一个字符，这样顺利有，字符也有
+vec = text2vec("F5Sd")
+text = vec2text(vec)
+print(text)  # F5Sd
+vec = text2vec("SFd5")
+text = vec2text(vec)
+print(text)  # SFd5
+"""
 
 
 # 生成一个训练batch
 def get_next_batch(batch_size=128):
-    images = glob.glob(image_path + '**/*.jpg')
-    length = len(images)
-    while True:
-        if length >= batch_size:
-            print('Detected %i images' % length)
-            break
-        else:
-            print('Found %i image, not enough for batch %i, wait and sleeping...' % (length, batch_size))
-            time.sleep(10)
-            images = glob.glob(image_path + '**/*.jpg')
-            length = len(images)
-
     batch_x = np.zeros([batch_size, IMAGE_HEIGHT * IMAGE_WIDTH])
     batch_y = np.zeros([batch_size, MAX_CAPTCHA * CHAR_SET_LEN])
-    i = 0
-    for text, image, img_path in executor.map(get_captcha, images[:batch_size]):
-        # pr(image, True)
-        batch_x[i, :] = image.flatten() / 255
+
+    # 有时生成图像大小不是(60, 160, 3)
+    def wrap_gen_captcha_text_and_image():
+        while True:
+            text, image = gen_captcha_text_and_image()
+            if image.shape == (60, 160, 3):
+                return text, image
+
+    for i in range(batch_size):
+        text, image = wrap_gen_captcha_text_and_image()
+        image = convert2gray(image)
+
+        batch_x[i, :] = image.flatten() / 255  # (image.flatten()-128)/128  mean为0
         batch_y[i, :] = text2vec(text)
-        os.remove(img_path)
-        i += 1
+
     return batch_x, batch_y
 
 
 ####################################################################
-# 申请占位符 按照图片
+
 X = tf.placeholder(tf.float32, [None, IMAGE_HEIGHT * IMAGE_WIDTH])
 Y = tf.placeholder(tf.float32, [None, MAX_CAPTCHA * CHAR_SET_LEN])
 keep_prob = tf.placeholder(tf.float32)  # dropout
@@ -116,7 +175,6 @@ keep_prob = tf.placeholder(tf.float32)  # dropout
 
 # 定义CNN
 def crack_captcha_cnn(w_alpha=0.01, b_alpha=0.1):
-    # 将占位符 转换为 按照图片给的新样式
     x = tf.reshape(X, shape=[-1, IMAGE_HEIGHT, IMAGE_WIDTH, 1])
 
     # w_c1_alpha = np.sqrt(2.0/(IMAGE_HEIGHT*IMAGE_WIDTH)) #
@@ -126,7 +184,7 @@ def crack_captcha_cnn(w_alpha=0.01, b_alpha=0.1):
     # out_alpha = np.sqrt(2.0/1024)
 
     # 3 conv layer
-    w_c1 = tf.Variable(w_alpha * tf.random_normal([3, 3, 1, 32]))  # 从正太分布输出随机值
+    w_c1 = tf.Variable(w_alpha * tf.random_normal([3, 3, 1, 32]))
     b_c1 = tf.Variable(b_alpha * tf.random_normal([32]))
     conv1 = tf.nn.relu(tf.nn.bias_add(tf.nn.conv2d(x, w_c1, strides=[1, 1, 1, 1], padding='SAME'), b_c1))
     conv1 = tf.nn.max_pool(conv1, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
@@ -145,7 +203,7 @@ def crack_captcha_cnn(w_alpha=0.01, b_alpha=0.1):
     conv3 = tf.nn.dropout(conv3, keep_prob)
 
     # Fully connected layer
-    w_d = tf.Variable(w_alpha * tf.random_normal([10 * 25 * 64, 1024]))  # 10 * 25 * 64是由conv3得到的
+    w_d = tf.Variable(w_alpha * tf.random_normal([8 * 20 * 64, 1024]))
     b_d = tf.Variable(b_alpha * tf.random_normal([1024]))
     dense = tf.reshape(conv3, [-1, w_d.get_shape().as_list()[0]])
     dense = tf.nn.relu(tf.add(tf.matmul(dense, w_d), b_d))
@@ -161,6 +219,7 @@ def crack_captcha_cnn(w_alpha=0.01, b_alpha=0.1):
 # 训练
 def train_crack_captcha_cnn():
     output = crack_captcha_cnn()
+    # loss
     # loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(output, Y))
     loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=output, labels=Y))
     # 最后一层用来分类的softmax和sigmoid有什么不同？
@@ -174,46 +233,26 @@ def train_crack_captcha_cnn():
     accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
 
     saver = tf.train.Saver()
-    checkpoint = tf.train.latest_checkpoint(model_path)
-
-    tf.summary.scalar("loss", loss)
-    tf.summary.scalar("accuracy", accuracy)
-    merged_summary_op = tf.summary.merge_all()
-    summary_writer = tf.summary.FileWriter(logs_path, graph=tf.get_default_graph())
-
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
-        if checkpoint:
-            saver.restore(sess, checkpoint)
-            useless, step = checkpoint.split('model-')
-            step = int(step)
-            print('找到 Checkpoint %s, 继续上次训练 Step %s' % (checkpoint, step))
-        else:
-            step = 1
-            print('开始新的训练 Step', step)
 
+        step = 0
         while True:
             batch_x, batch_y = get_next_batch(64)
-            _, loss_, summary = sess.run([optimizer, loss, merged_summary_op],
-                                         feed_dict={X: batch_x, Y: batch_y, keep_prob: 0.75})
-            summary_writer.add_summary(summary, step)
-            print('Loss', step, loss_)
+            _, loss_ = sess.run([optimizer, loss], feed_dict={X: batch_x, Y: batch_y, keep_prob: 0.75})
+            print(step, loss_)
 
             # 每100 step计算一次准确率
             if step % 100 == 0:
                 batch_x_test, batch_y_test = get_next_batch(100)
                 acc = sess.run(accuracy, feed_dict={X: batch_x_test, Y: batch_y_test, keep_prob: 1.})
-                print('ACC', step, acc)
-
-                # 每100次保存Model
-                saver.save(sess, model_name, global_step=step)
-                print('model saved to', model_name)
+                print(step, acc)
                 # 如果准确率大于50%,保存模型,完成训练
-                if acc > ACC_TARGET:
+                if acc > 0.5:
+                    saver.save(sess, "crack_capcha.model", global_step=step)
                     break
+
             step += 1
 
 
-if __name__ == '__main__':
-    train_crack_captcha_cnn()
-    # get_next_batch(1)
+train_crack_captcha_cnn()

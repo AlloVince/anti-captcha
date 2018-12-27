@@ -8,7 +8,7 @@ import requests
 
 np.set_printoptions(threshold=np.nan)
 
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 
 # 验证码中的字符, 就不用汉字了
 number = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
