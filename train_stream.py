@@ -5,6 +5,7 @@ import os
 import cv2
 import glob
 import time
+import sys
 from concurrent.futures import ProcessPoolExecutor
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -14,7 +15,7 @@ model_name = model_path + '/model'
 ACC_TARGET = float(os.environ.get('ACC_TARGET', 0.95))
 image_path = os.path.dirname(os.path.realpath(__file__)) + '/samples'
 logs_path = os.path.dirname(os.path.realpath(__file__)) + '/logs'
-executor = ProcessPoolExecutor(max_workers=int(os.getenv('MAX_WORKERS', 4)))
+executor = ProcessPoolExecutor(max_workers=int(os.getenv('MAX_WORKERS', 12)))
 
 
 def text2vec(text):
@@ -212,6 +213,7 @@ def train_crack_captcha_cnn():
                 if acc > ACC_TARGET:
                     break
             step += 1
+            sys.stdout.flush()
 
 
 if __name__ == '__main__':
