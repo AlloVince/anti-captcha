@@ -30,9 +30,11 @@ CHAR_SET_LEN = len(char_set)
 # image = np.array(Image.open(BytesIO(response.content)))
 
 
-def pr(matrix):
-    # s = [[str(1 if e == 255 else 0) for e in row] for row in matrix]
-    s = [[str(e) for e in row] for row in matrix]
+def pr(matrix, sim=False):
+    if sim:
+        s = [[str(1 if e == 255 else 0) for e in row] for row in matrix]
+    else:
+        s = [[str(e) for e in row] for row in matrix]
     lens = [max(map(len, col)) for col in zip(*s)]
     fmt = ''.join('{{:{}}}'.format(x) for x in lens)
     table = [fmt.format(*row) for row in s]
