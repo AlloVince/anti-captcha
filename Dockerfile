@@ -9,3 +9,4 @@ RUN apt-get update && apt-get install -y \
 
 COPY captcha.php /var/www/html
 COPY vendor /var/www/html/vendor
+COPY gen_captcha.php /var/www/html
