@@ -6,6 +6,7 @@ import cv2
 import glob
 import time
 import sys
+import redis
 from concurrent.futures import ProcessPoolExecutor
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -16,6 +17,7 @@ ACC_TARGET = float(os.environ.get('ACC_TARGET', 0.95))
 image_path = os.path.dirname(os.path.realpath(__file__)) + '/samples'
 logs_path = os.path.dirname(os.path.realpath(__file__)) + '/logs'
 executor = ProcessPoolExecutor(max_workers=int(os.getenv('MAX_WORKERS', 4)))
+redis_client = redis.Redis(connection_pool=redis.ConnectionPool.from_url('unix:///tmp/redis.sock'))
 
 
 def text2vec(text):
@@ -65,7 +67,10 @@ def vec2text(vec):
 
 
 def get_captcha(_image_path):
-    original_image = cv2.imread(_image_path)
+    # original_image = cv2.imread(_image_path)
+    nparr = np.fromstring(redis_client.get(_image_path), np.uint8)
+    original_image = cv2.imdecode(nparr, 1)
+
     image = cv2.medianBlur(original_image, 5)
     ret, image = cv2.threshold(image, 127, 255, cv2.THRESH_BINARY)
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -78,13 +83,15 @@ def get_captcha(_image_path):
                 count += 1
             revert[i, j] = (255 - image[i, j])
     image = revert if count > height * width / 2 else image
-    text = os.path.splitext(os.path.basename(_image_path))[0]
+    # text = os.path.splitext(os.path.basename(_image_path))[0]
+    text = _image_path.decode('utf-8').split(':').pop()
     return text, image, _image_path
 
 
 # 生成一个训练batch
 def get_next_batch(batch_size=128):
-    images = glob.glob(image_path + '**/*.jpg')
+    # images = glob.glob(image_path + '**/*.jpg')
+    images = redis_client.keys('captcha:*')
     length = len(images)
     while True:
         if length >= batch_size:
@@ -93,7 +100,8 @@ def get_next_batch(batch_size=128):
         else:
             print('Found %i image, not enough for batch %i, wait and sleeping...' % (length, batch_size))
             time.sleep(10)
-            images = glob.glob(image_path + '**/*.jpg')
+            # images = glob.glob(image_path + '**/*.jpg')
+            images = redis_client.keys('captcha:*')
             length = len(images)
 
     batch_x = np.zeros([batch_size, IMAGE_HEIGHT * IMAGE_WIDTH])
@@ -103,7 +111,8 @@ def get_next_batch(batch_size=128):
         # pr(image, True)
         batch_x[i, :] = image.flatten() / 255
         batch_y[i, :] = text2vec(text)
-        os.remove(img_path)
+        # os.remove(img_path)
+        redis_client.delete(img_path)
         i += 1
     return batch_x, batch_y
 

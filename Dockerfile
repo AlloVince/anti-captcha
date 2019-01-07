@@ -10,9 +10,7 @@ RUN pip install -r requirements.txt
 
 RUN mkdir -p /opt/htdocs/anti-captcha/models
 COPY api.py /opt/htdocs/anti-captcha
-COPY train.py /opt/model_checkpoint_path: "/opt/htdocs/anti-captcha/models/model-15000"
-all_model_checkpoint_paths: "/opt/htdocs/anti-captcha/models/model-15000"
-htdocs/anti-captcha
+COPY train.py /opt/htdocs/anti-captcha
 COPY gen_captcha.py /opt/htdocs/anti-captcha
 COPY index.html /opt/htdocs/anti-captcha
 

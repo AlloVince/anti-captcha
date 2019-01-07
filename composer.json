@@ -1,5 +1,6 @@
 {
     "require": {
-        "gregwar/captcha": "1.*"
+        "gregwar/captcha": "1.*",
+        "predis/predis": "^1.1"
     }
 }
