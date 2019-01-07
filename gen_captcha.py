@@ -5,10 +5,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 import cv2
 import requests
+import platform
 
 np.set_printoptions(threshold=np.nan)
 
-# matplotlib.use('TkAgg')
+if platform.system() == 'Darwin':
+    matplotlib.use('TkAgg')
 
 # 验证码中的字符, 就不用汉字了
 number = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
@@ -18,16 +20,10 @@ ALPHABET = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'
             'V', 'W', 'X', 'Y', 'Z']
 # ALPHABET = []
 char_set = number + alphabet + ALPHABET + ['_']  # 如果验证码长度小于4, '_'用来补齐
-# IMAGE_WIDTH = 160
-# IMAGE_HEIGHT = 60
-# MAX_CAPTCHA = 4
 IMAGE_WIDTH = 200
 IMAGE_HEIGHT = 80
 MAX_CAPTCHA = 5
 CHAR_SET_LEN = len(char_set)
-
-
-# image = np.array(Image.open(BytesIO(response.content)))
 
 
 def pr(matrix, sim=False):
@@ -44,8 +40,12 @@ def pr(matrix, sim=False):
 def gen_captcha_text_and_image():
     response = requests.get('http://localhost:8888/captcha.php')
     captcha_text = response.headers['X-Phrase']
+    open('samples/' + captcha_text + '.jpg', 'wb').write(response.content)
 
+    # response = requests.get('http://btcache.me/captcha')
+    # captcha_text = 'unknown'
     # open('samples/' + captcha_text + '.jpg', 'wb').write(response.content)
+
     nparr = np.fromstring(response.content, np.uint8)
     original_image = cv2.imdecode(nparr, 1)
     image = cv2.medianBlur(original_image, 5)
@@ -61,6 +61,7 @@ def gen_captcha_text_and_image():
             if th1[i, j] == 0:
                 count += 1
             revert[i, j] = (255 - th1[i, j])
+
     return captcha_text, revert if count > height * width / 2 else th1, original_image
 
 
@@ -68,8 +69,8 @@ async def main():
     text, image, original_image = gen_captcha_text_and_image()
     # pr(image)
     a = image.flatten() / 255
-    print(a)
-    f = plt.figure()
+    # print(a)
+    plt.figure()
     plt.subplot(2, 2, 1), plt.imshow(original_image)
     plt.xticks([]), plt.yticks([])
     plt.subplot(2, 2, 2), plt.imshow(image, 'gray')

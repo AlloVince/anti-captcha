@@ -1,4 +1,5 @@
 docker run -p 8888:80 -v /Users/allovince/opt/htdocs/anti-captcha:/var/www/html --name captcha --rm php:7-apache-gd
+docker run -p 8888:80 --name captcha --rm -d allovince/php:7-apache-gd
 docker build -t allovince/php:7-apache-gd .
 docker push allovince/php:7-apache-gd 
 

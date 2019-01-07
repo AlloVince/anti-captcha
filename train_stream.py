@@ -15,7 +15,7 @@ model_name = model_path + '/model'
 ACC_TARGET = float(os.environ.get('ACC_TARGET', 0.95))
 image_path = os.path.dirname(os.path.realpath(__file__)) + '/samples'
 logs_path = os.path.dirname(os.path.realpath(__file__)) + '/logs'
-executor = ProcessPoolExecutor(max_workers=int(os.getenv('MAX_WORKERS', 12)))
+executor = ProcessPoolExecutor(max_workers=int(os.getenv('MAX_WORKERS', 4)))
 
 
 def text2vec(text):
@@ -194,7 +194,7 @@ def train_crack_captcha_cnn():
             print('开始新的训练 Step', step)
 
         while True:
-            batch_x, batch_y = get_next_batch(64)
+            batch_x, batch_y = get_next_batch(128)
             _, loss_, summary = sess.run([optimizer, loss, merged_summary_op],
                                          feed_dict={X: batch_x, Y: batch_y, keep_prob: 0.75})
             summary_writer.add_summary(summary, step)

@@ -5,6 +5,7 @@ from gen_captcha import gen_captcha_text_and_image, MAX_CAPTCHA, CHAR_SET_LEN
 import numpy as np
 import tensorflow as tf
 import os
+import matplotlib.pyplot as plt
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
@@ -32,6 +33,10 @@ def main():
     image = image.flatten() / 255
     predict_text = crack_captcha(image)
     print("匹配: {} 正确: {}  预测: {}".format(text == predict_text, text, predict_text))
+    # plt.figure()
+    # plt.subplot(2, 2, 1), plt.imshow(o)
+    # plt.xticks([]), plt.yticks([])
+    # plt.show()
 
 
 if __name__ == '__main__':

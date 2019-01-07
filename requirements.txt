@@ -1,7 +1,9 @@
 tensorflow
 numpy
 captcha
-pillow
 matplotlib
 opencv-python
 requests
+falcon
+falcon-multipart
+gunicorn
