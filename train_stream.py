@@ -16,7 +16,7 @@ model_name = model_path + '/model'
 ACC_TARGET = float(os.environ.get('ACC_TARGET', 0.95))
 image_path = os.path.dirname(os.path.realpath(__file__)) + '/samples'
 logs_path = os.path.dirname(os.path.realpath(__file__)) + '/logs'
-executor = ProcessPoolExecutor(max_workers=int(os.getenv('MAX_WORKERS', 4)))
+executor = ProcessPoolExecutor(max_workers=int(os.getenv('MAX_WORKERS', 14)))
 redis_client = redis.Redis(connection_pool=redis.ConnectionPool.from_url('unix:///tmp/redis.sock'))
 
 
@@ -191,7 +191,7 @@ def train_crack_captcha_cnn():
     merged_summary_op = tf.summary.merge_all()
     summary_writer = tf.summary.FileWriter(logs_path, graph=tf.get_default_graph())
 
-    with tf.Session() as sess:
+    with tf.Session(config=tf.ConfigProto(device_count={"CPU": 14})) as sess:
         sess.run(tf.global_variables_initializer())
         if checkpoint:
             saver.restore(sess, checkpoint)
